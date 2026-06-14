@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-06-14T00:00:00Z",
+  "context": "dadaia-pi-workspace",
+  "features": [
+    {
+      "rank": 1,
+      "slug": "product-vision",
+      "title": "Product Vision",
+      "category": "product",
+      "tldr": "Pi-only rebuild of dadaia-workspace ideas: SDD-native, multi-project, memory-backed, and lifecycle-governed.",
+      "summary": "Defines the product identity and non-goals for dadaia-pi-workspace. It preserves the ideas of dadaia-workspace without carrying its multi-harness implementation.",
+      "path": "specs/memory/product/product-vision.md",
+      "tags": ["vision", "pi", "sdd"],
+      "token_estimate": 160,
+      "agent_tier": "self-pull",
+      "depends_on": []
+    },
+    {
+      "rank": 2,
+      "slug": "spec-context-projects",
+      "title": "Spec Context Projects",
+      "category": "product",
+      "tldr": "One canonical specs tree bound to one repository, session-bindable for Pi.",
+      "summary": "Defines the central unit of work in dadaia-pi-workspace: a repository governed by a committed specs tree and a workspace registry record.",
+      "path": "specs/memory/product/spec-context-projects.md",
+      "tags": ["context", "specs", "memory"],
+      "token_estimate": 135,
+      "agent_tier": "self-pull",
+      "depends_on": ["product-vision"]
+    },
+    {
+      "rank": 3,
+      "slug": "pi-native-agent-surface",
+      "title": "Pi-Native Agent Surface",
+      "category": "product",
+      "tldr": "The agentic surface is Pi resources only: extensions, skills, prompt templates, packages, settings, and AGENTS.md.",
+      "summary": "Defines how dadaia-pi-workspace uses Pi's documented extension points instead of projecting assets for other harnesses.",
+      "path": "specs/memory/product/pi-native-agent-surface.md",
+      "tags": ["pi", "extensions", "skills", "prompts"],
+      "token_estimate": 190,
+      "agent_tier": "self-pull",
+      "depends_on": ["product-vision"]
+    },
+    {
+      "rank": 4,
+      "slug": "sdd-lifecycle-governance",
+      "title": "SDD Lifecycle Governance",
+      "category": "product",
+      "tldr": "SPEC/PLAN/TASKS approval, additive evidence, mutating leases, review checkpoints, and closure memory updates.",
+      "summary": "Defines the lifecycle rules that make Pi sessions safe and organized across multiple repos.",
+      "path": "specs/memory/product/sdd-lifecycle-governance.md",
+      "tags": ["sdd", "lifecycle", "lease", "review"],
+      "token_estimate": 170,
+      "agent_tier": "self-pull",
+      "depends_on": ["spec-context-projects", "pi-native-agent-surface"]
+    }
+  ]
+}
