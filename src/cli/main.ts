@@ -7,6 +7,7 @@ import { SessionBindingService } from "../features/context/sessionBinding.js";
 import { runWorkspaceDoctor } from "../features/doctor/workspaceDoctor.js";
 import { emitSecurityApproval, formatHandoffItem, listHandoffs, validateHandoffFile } from "../features/handoff/index.js";
 import { installAllHooks, preCommitCheck, prePushCheck, uninstallAllHooks } from "../features/hooks/index.js";
+import { listMemoryCatalog, showMemoryAtom } from "../features/memory/index.js";
 import { buildWorkspaceStatus, type WorkspaceStatusReport } from "../features/status/index.js";
 import { writeProjectSettings } from "../pi/projectSettings.js";
 import { runSpecsDoctor } from "../features/specs/doctor.js";
@@ -21,6 +22,8 @@ function usage(): string {
     "  dadaia-pi --version",
     "  dadaia-pi doctor [--json]",
     "  dadaia-pi status [--session-id <id>] [--context <name>] [--json]",
+    "  dadaia-pi memory list [--context <name>] [--json]",
+    "  dadaia-pi memory show <slug> [--context <name>] [--json]",
     "  dadaia-pi specs scaffold [--specs-dir <path>]",
     "  dadaia-pi specs doctor [--specs-dir <path>] [--json]",
     "  dadaia-pi context create <name> --repo <slug> [--url <url>] [--branch <branch>] [--json]",
@@ -48,6 +51,7 @@ function usage(): string {
     "  specs doctor    Check committed SDD specs structure",
     "  context         Manage Spec Context Project registry and ALIVE/DEAD lifecycle",
     "  handoff        Validate, list, and emit lifecycle handoffs",
+    "  memory         Navigate product memory catalog and atoms",
     "  hooks           Install and run git chokepoint checks",
     "  package         Generate consumer Pi project settings",
   ].join("\n");
@@ -127,6 +131,26 @@ async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
   return Buffer.concat(chunks).toString("utf8");
+}
+
+async function runMemory(argv: readonly string[], cwd: string): Promise<number> {
+  const [, subcommand, slug] = argv;
+  const json = hasFlag(argv, "--json");
+  const context = optionValue(argv, "--context");
+  if (subcommand === "list") {
+    const entries = await listMemoryCatalog(cwd, context);
+    if (json) process.stdout.write(`${JSON.stringify(entries, null, 2)}\n`);
+    else process.stdout.write(entries.map((entry) => `${entry.slug}\t${entry.title ?? ""}\t${entry.tldr ?? ""}`).join("\n") + (entries.length > 0 ? "\n" : ""));
+    return 0;
+  }
+  if (subcommand === "show") {
+    if (!slug) throw new Error("memory show requires <slug>");
+    const atom = await showMemoryAtom(cwd, slug, context);
+    if (json) process.stdout.write(`${JSON.stringify(atom, null, 2)}\n`);
+    else process.stdout.write(atom.content);
+    return 0;
+  }
+  throw new Error(`Unknown memory command: ${subcommand ?? ""}`);
 }
 
 async function runPackage(argv: readonly string[], cwd: string): Promise<number> {
@@ -316,6 +340,10 @@ export async function run(argv: readonly string[], cwd = process.cwd()): Promise
     const report = await buildWorkspaceStatus(cwd, input);
     printStatus(report, hasFlag(argv, "--json"));
     return 0;
+  }
+
+  if (command === "memory") {
+    return runMemory(argv, cwd);
   }
 
   if (command === "specs" && subcommand === "scaffold") {

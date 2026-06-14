@@ -5,10 +5,15 @@ import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { bindCurrentSession, releaseCurrentSession, statusCurrentSession } from "../dist/src/pi/extensionCommands.js";
 
+type SimpleComponent = { render(width: number): string[]; invalidate(): void };
+
 type CommandContext = {
   cwd: string;
   sessionManager: { getSessionId(): string };
-  ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+  ui: {
+    notify(message: string, type?: "info" | "warning" | "error"): void;
+    custom?(component: SimpleComponent, options?: { overlay?: boolean }): unknown;
+  };
 };
 
 type EventContext = CommandContext;
@@ -36,6 +41,15 @@ type Binding = {
 };
 
 const READ_MODE_TOOLS = ["read", "grep", "find", "ls", "bash"] as const;
+
+function panelComponent(lines: readonly string[]): SimpleComponent {
+  return {
+    render(width: number): string[] {
+      return ["dadaia-pi workspace", "─".repeat(Math.min(width, 24)), ...lines].map((line) => line.slice(0, width));
+    },
+    invalidate() {},
+  };
+}
 
 async function readJson<T>(path: string): Promise<T | undefined> {
   try {
@@ -141,6 +155,19 @@ export default function dadaiaPiExtension(pi: ExtensionApi): void {
     async handler(_args, ctx) {
       try {
         ctx.ui.notify(await statusCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId()), "info");
+      } catch (error) {
+        ctx.ui.notify((error as Error).message, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("dadaia-panel", {
+    description: "Show a read-only dadaia-pi workspace status panel",
+    async handler(_args, ctx) {
+      try {
+        const status = await statusCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId());
+        if (ctx.ui.custom) ctx.ui.custom(panelComponent(status.split("; ").map((line) => line.trim())), { overlay: true });
+        else ctx.ui.notify(status, "info");
       } catch (error) {
         ctx.ui.notify((error as Error).message, "error");
       }
