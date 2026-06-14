@@ -5,6 +5,7 @@ export { STATE_DIR_NAME, defaultWorkspaceLayout, type WorkspaceLayout } from "./
 export { ContextService } from "./features/context/service.js";
 export { SessionBindingService } from "./features/context/sessionBinding.js";
 export * from "./features/gate/index.js";
+export * from "./features/handoff/index.js";
 export * from "./features/hooks/index.js";
 export * from "./features/status/index.js";
 export * from "./pi/index.js";

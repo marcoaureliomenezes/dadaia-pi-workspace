@@ -80,6 +80,9 @@ Useful commands:
 node dist/src/cli/main.js specs scaffold
 node dist/src/cli/main.js specs doctor
 node dist/src/cli/main.js status --session-id <id>
+node dist/src/cli/main.js handoff list --context <name>
+node dist/src/cli/main.js handoff validate <file>
+node dist/src/cli/main.js handoff approve-security --context <name> --commit <sha> --session-id <id>
 # Pi extension commands after package trust/load:
 # /dadaia-bind <context> [--mode read|implementation|review] [--release <id>]
 # /dadaia-status

@@ -1,4 +1,4 @@
 ---
-release: pi-extension-binding-commands
+release: handoff-cli-security-helper
 phase: ARCHIVED
 ---

@@ -5,6 +5,7 @@ import { VERSION } from "../core/version.js";
 import { ContextService } from "../features/context/service.js";
 import { SessionBindingService } from "../features/context/sessionBinding.js";
 import { runWorkspaceDoctor } from "../features/doctor/workspaceDoctor.js";
+import { emitSecurityApproval, formatHandoffItem, listHandoffs, validateHandoffFile } from "../features/handoff/index.js";
 import { installAllHooks, preCommitCheck, prePushCheck, uninstallAllHooks } from "../features/hooks/index.js";
 import { buildWorkspaceStatus, type WorkspaceStatusReport } from "../features/status/index.js";
 import { writeProjectSettings } from "../pi/projectSettings.js";
@@ -31,6 +32,9 @@ function usage(): string {
     "  dadaia-pi context bind <name> --session-id <id> [--mode read|implementation|review] [--release <id>] [--json]",
     "  dadaia-pi context status --session-id <id> [--json]",
     "  dadaia-pi context release --session-id <id>",
+    "  dadaia-pi handoff validate <file> [--json]",
+    "  dadaia-pi handoff list [--context <name>] [--json]",
+    "  dadaia-pi handoff approve-security --context <name> --commit <sha> [--session-id <id>] [--scope <text>] [--release <id>] [--json]",
     "  dadaia-pi hooks install [--repo-root <path>]",
     "  dadaia-pi hooks uninstall [--repo-root <path>]",
     "  dadaia-pi hooks pre-commit-check [--repo-root <path>]",
@@ -43,6 +47,7 @@ function usage(): string {
     "  specs scaffold  Create a canonical specs tree if files are missing",
     "  specs doctor    Check committed SDD specs structure",
     "  context         Manage Spec Context Project registry and ALIVE/DEAD lifecycle",
+    "  handoff        Validate, list, and emit lifecycle handoffs",
     "  hooks           Install and run git chokepoint checks",
     "  package         Generate consumer Pi project settings",
   ].join("\n");
@@ -134,6 +139,42 @@ async function runPackage(argv: readonly string[], cwd: string): Promise<number>
     return 0;
   }
   throw new Error(`Unknown package command: ${subcommand ?? ""}`);
+}
+
+async function runHandoff(argv: readonly string[], cwd: string): Promise<number> {
+  const [, subcommand, file] = argv;
+  const json = hasFlag(argv, "--json");
+  if (subcommand === "validate") {
+    if (!file) throw new Error("handoff validate requires <file>");
+    const result = await validateHandoffFile(file);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(result.ok ? `ok: ${result.path}\n` : `[ERROR] ${result.path} — ${result.errors.join("; ")}\n`);
+    return result.ok ? 0 : 1;
+  }
+  if (subcommand === "list") {
+    const items = await listHandoffs(cwd, optionValue(argv, "--context"));
+    if (json) process.stdout.write(`${JSON.stringify(items, null, 2)}\n`);
+    else process.stdout.write(items.length === 0 ? "no handoffs\n" : `${items.map(formatHandoffItem).join("\n")}\n`);
+    return items.some((item) => !item.ok) ? 1 : 0;
+  }
+  if (subcommand === "approve-security") {
+    const context = optionValue(argv, "--context");
+    const commitSha = optionValue(argv, "--commit");
+    if (!context) throw new Error("handoff approve-security requires --context <name>");
+    if (!commitSha) throw new Error("handoff approve-security requires --commit <sha>");
+    const input: { context: string; commitSha: string; sessionId?: string; scope?: string; release?: string } = { context, commitSha };
+    const sessionId = optionValue(argv, "--session-id");
+    const scope = optionValue(argv, "--scope");
+    const release = optionValue(argv, "--release");
+    if (sessionId) input.sessionId = sessionId;
+    if (scope) input.scope = scope;
+    if (release) input.release = release;
+    const path = await emitSecurityApproval(cwd, input);
+    if (json) process.stdout.write(`${JSON.stringify({ path }, null, 2)}\n`);
+    else process.stdout.write(`wrote ${path}\n`);
+    return 0;
+  }
+  throw new Error(`Unknown handoff command: ${subcommand ?? ""}`);
 }
 
 async function runHooks(argv: readonly string[], cwd: string): Promise<number> {
@@ -293,6 +334,10 @@ export async function run(argv: readonly string[], cwd = process.cwd()): Promise
 
   if (command === "context") {
     return runContext(argv, cwd);
+  }
+
+  if (command === "handoff") {
+    return runHandoff(argv, cwd);
   }
 
   if (command === "hooks") {
