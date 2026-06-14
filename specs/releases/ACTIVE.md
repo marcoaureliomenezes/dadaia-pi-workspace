@@ -1,4 +1,4 @@
 ---
-release: bootstrap-pi-native-specs
-phase: IMPLEMENTATION
+release: pi-native-status-command
+phase: ARCHIVED
 ---

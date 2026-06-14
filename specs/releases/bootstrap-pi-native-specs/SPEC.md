@@ -23,8 +23,18 @@ and harness-specific compatibility code that Pi does not need.
 - Pi loads `AGENTS.md` or `CLAUDE.md` context files from global, parent, and
   current directories.
 - Project-local `.pi` resources load only after project trust.
+- Pi packages are distributed through package-root resources or a `package.json`
+  `pi` manifest; consumer `.pi/**` is the project-local runtime surface, not the
+  package source layout.
 - Extensions can register tools, commands, UI, session persistence, and event
   handlers; `tool_call` can block a tool call.
+- Extensions can intercept `user_bash`, inject context via `before_agent_start`,
+  modify messages via `context`, and restore state through session lifecycle
+  events.
+- Pi sessions have a session id exposed through the session manager and are stored
+  as JSONL trees.
+- Custom mutating tools should use Pi's file mutation queue to avoid parallel
+  write clobbering.
 - Pi has no built-in sandbox; extensions and tools run with local user
   permissions.
 - Pi supports interactive, print/JSON, RPC, and SDK modes.
@@ -93,7 +103,10 @@ Acceptance:
 
 - architecture defines extension event responsibilities;
 - lifecycle law describes git hook boundaries;
-- tasks include tool-call gate and pre-commit/pre-push hooks.
+- tasks include tool-call gate, user-bash interception, heartbeat, and
+  pre-commit/pre-push hooks;
+- READ mode uses active-tool restriction as a first layer and gate checks as the
+  enforcement backstop.
 
 ### PR-5: Honest Security
 
@@ -103,6 +116,8 @@ Acceptance:
 
 - constitution states Pi is not a sandbox;
 - tech stack forbids committed secrets and machine-local credentials;
+- package/trust docs distinguish package source resources from consumer `.pi/**`;
+- first-run docs explain project trust and non-interactive `--approve` behavior;
 - QA requires security-sensitive behavior tests or documented manual checks.
 
 ## Non-Goals

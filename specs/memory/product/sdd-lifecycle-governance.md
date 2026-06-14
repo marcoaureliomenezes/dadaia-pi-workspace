@@ -27,10 +27,18 @@ release and a reserved task.
 2. Product steward writes SPEC, PLAN, and TASKS.
 3. Implementation session reserves one task.
 4. Pi extension and git hooks enforce path, phase, and lease constraints.
-5. Review sessions produce additive evidence.
+5. Review sessions produce additive evidence in one of three channels: human
+   reports under `.dadaia-pi/reports/`, machine handoffs under
+   `.dadaia-pi/handoff/`, or committed audits under `specs/audits/`.
 6. Closure updates memory and archives the release truth.
 
 ## Diferencial
 
 There is exactly one mutating lease per Spec Context Project. Additive work never
-blocks on the lease.
+blocks on the lease. Parallel additive outputs must use collision-safe names that
+include UTC timestamp plus an 8-character Pi session discriminator, for example
+`<YYYYMMDDTHHMMSSZ>-<session_id_8chars>/` or
+`<YYYYMMDDTHHMMSSZ>-<session_id_8chars>-<slug>.md`. Handoff JSON should include a
+schema version, agent/context/release metadata, verdict when applicable, artifact
+path, and artifact hash so downstream sessions can validate evidence without
+parsing prose reports.

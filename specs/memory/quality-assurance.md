@@ -31,8 +31,10 @@ release_origin: bootstrap-pi-native-specs
 | SDD scaffold | constitution, memory, backlog, bugs, audits, releases |
 | Gate classifier | ADDITIVE, MEMORY, FROZEN, PROTECTED, MUTATING |
 | Lease | acquire, renew, stale reclaim, live foreign yield |
-| Pi extension | context injection and write-call blocking |
+| Pi extension | project-trust behavior, context injection, session-id binding, tool-call blocking, user-bash interception, READ active-tool restriction |
+| Pi package | package manifest/resource discovery and project-local load after trust |
 | Git hooks | pre-commit and pre-push behavior |
+| Handoffs | minimal JSON schema validation and `.dadaia-pi/handoff/<context>/` doctor coverage |
 
 ## Diferencial
 
@@ -40,3 +42,9 @@ release_origin: bootstrap-pi-native-specs
 - No feature ships without delete/orphan, dirty input, and missing dependency
   coverage or an explicit justified absence.
 - No state file ships without a doctor check and cleanup rule.
+- Machine-readable handoffs must validate `schemaVersion`, context/session/agent/timestamp/scope, artifact type, metrics object, and findings array before they are used as lifecycle evidence.
+- No custom mutating Pi tool ships without test coverage that it uses the file
+  mutation queue or a documented reason it cannot race with other writes.
+- No project-local `.pi/**` behavior ships without a trust/non-interactive smoke
+  test or documented manual check.
+- First-run documentation must name Pi's no-sandbox posture, package executable-code risk, project trust loading behavior, and non-interactive `--approve` expectations.

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# dadaia-pi runtime state
+.dadaia-pi/
+.pi/npm/
+.pi/git/
+
+# local tool output
+*.log

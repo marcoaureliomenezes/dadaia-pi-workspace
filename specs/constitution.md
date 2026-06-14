@@ -29,18 +29,22 @@ OpenCode projections, compatibility shims, model rosters, hooks, or instructions
 Pi is the only supported agent harness. The user-facing installable surface is a
 Pi package plus a CLI:
 
-- `.pi/extensions/**` or packaged Pi extensions for context injection,
-  tool-call gating, commands, and optional TUI affordances;
-- `.pi/skills/**` for on-demand SDD workflows and reference procedures;
-- `.pi/prompts/**` for repeatable slash-command prompt templates;
-- `.pi/settings.json` only when the project has been explicitly trusted by Pi;
+- package-root `extensions/**` or manifest-declared packaged Pi extensions for
+  context injection, tool-call/user-bash gating, commands, and optional TUI
+  affordances;
+- package-root `skills/**` for on-demand SDD workflows and reference procedures;
+- package-root `prompts/**` for repeatable slash-command prompt templates;
+- consumer `.pi/settings.json` and optional `.pi/**` local resources only when the
+  project has been explicitly trusted by Pi;
 - root and scoped `AGENTS.md` files for instructions that Pi loads regardless of
   project trust;
 - a TypeScript CLI for workspace/context/spec lifecycle commands.
 
-Project-local Pi resources are trusted-code inputs. They must be minimal,
-auditable, and documented because Pi runs them with the permissions of the local
-user.
+Project-local Pi resources and Pi packages are trusted-code inputs. They must be
+minimal, auditable, and documented because Pi runs them with the permissions of
+the local user. First-run docs must state that non-interactive Pi modes do not
+prompt for trust and require an existing trust decision or an explicit `--approve`
+when project resources must load.
 
 ## 2. Spec Context Project
 
@@ -139,12 +143,17 @@ interception for write-like tools.
 
 The extension enforces:
 
-- context injection on session start, bind, resume, and relevant prompts;
+- context injection on session start, bind, resume, and relevant prompts using
+  documented Pi events such as `session_start`, `before_agent_start`, and
+  `context`;
 - path classification for tool calls: ADDITIVE, MEMORY, FROZEN, MUTATING,
   PROTECTED;
-- READ mode as non-acquiring;
+- interception of `user_bash` because user-entered shell commands can mutate
+  outside the LLM tool-call path;
+- READ mode as non-acquiring, with active-tool restriction as a first layer and
+  gate enforcement as the backstop;
 - one MUTATING lease per context;
-- heartbeat on session activity;
+- heartbeat on session/tool activity using Pi session identity;
 - clear block reasons and no silent mutation.
 
 The extension is not the only boundary. Git chokepoints are required because shell
@@ -165,9 +174,9 @@ Each Spec Context Project has one MUTATING lease. The lease record lives under
 
 - context;
 - release;
-- session id;
+- Pi session id;
 - mode;
-- process id or Pi session identity when available;
+- process id when available;
 - acquired timestamp;
 - heartbeat timestamp;
 - TTL.
@@ -185,6 +194,11 @@ There are three communication channels:
 - human reports: `.dadaia-pi/reports/<context>/<role-or-session>/`;
 - machine handoffs: `.dadaia-pi/handoff/<context>/`;
 - committed audits: `specs/audits/<YYYYMMDDTHHMMSSZ>-<session_id_8>/`.
+
+Parallel additive files and directories must include a UTC timestamp and an
+8-character session discriminator to avoid collisions. Machine handoffs must be
+JSON, schema-versioned, and capable of referencing a human/report/audit artifact
+by workspace-relative path plus content hash.
 
 These channels must not be merged. Handoffs are machine-readable; reports are for
 humans; audits are committed project evidence.

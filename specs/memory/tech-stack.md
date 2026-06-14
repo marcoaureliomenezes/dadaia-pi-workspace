@@ -43,12 +43,25 @@ Initial implementation should start with:
 
 - `@earendil-works/pi-coding-agent` for Pi extension/package APIs;
 - `typebox` only where Pi tool schemas require it;
+- `@earendil-works/pi-ai` only where Pi-compatible enum helpers such as
+  `StringEnum` are required by custom tool schemas;
 - Node standard library for filesystem, process, and path operations.
+
+Pi core packages imported by extensions or package resources must be declared as
+`peerDependencies` with a broad compatible range instead of bundled:
+`@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`,
+`@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `typebox`. Runtime
+third-party dependencies that are not Pi core packages belong in `dependencies`.
 
 Additional dependencies require an approved release spec and must explain why the
 standard library or existing Pi package APIs are insufficient.
 
 ## Comandos canônicos
+
+The package layout must be valid as a Pi package: package-root `extensions/`,
+`skills/`, `prompts/`, and optional `themes/`, or equivalent `package.json` `pi`
+manifest entries. Consumer `.pi/**` files are generated or installed workspace
+state, not the canonical package source.
 
 The exact commands will be finalized when `package.json` is introduced. The
 expected command contract is:
@@ -67,5 +80,11 @@ npm run typecheck
 - Do not create `.dadaia/`; this product uses `.dadaia-pi/`.
 - Do not put operational state in managed repos.
 - Do not represent Pi project trust as a sandbox.
+- Do not document Pi package resources as inert content; package extensions, hooks, and project-local `.pi/**` resources are executable-code risk.
 - Do not commit secrets, provider API keys, local session files, or machine-local
   Pi credentials.
+- Do not write custom mutating Pi tools without wrapping the entire
+  read-modify-write window in `withFileMutationQueue()` using the resolved
+  absolute target path.
+- Do not rely on active-tool selection as a security boundary; it is a first
+  layer only and must be backed by gate checks.

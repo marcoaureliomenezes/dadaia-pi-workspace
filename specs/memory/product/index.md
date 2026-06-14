@@ -20,7 +20,8 @@ release_origin: bootstrap-pi-native-specs
 workspace. It keeps the strongest ideas from `dadaia-workspace`: Spec Context
 Projects, current-product memory, release gates, additive evidence, mutating
 leases, and context injection. It discards multi-harness projection and designs
-directly for Pi's extension, skill, prompt, package, and session model.
+directly for Pi's extension, skill, prompt, package, and session model. It also
+documents Pi trust honestly: resource loading approval is not sandboxing.
 
 ## Usuários
 
@@ -40,6 +41,8 @@ directly for Pi's extension, skill, prompt, package, and session model.
 | `spec-context-projects` | Spec Context Projects | One canonical specs tree bound to one repo |
 | `pi-native-agent-surface` | Pi-Native Agent Surface | Extensions, skills, prompts, packages, and AGENTS.md |
 | `sdd-lifecycle-governance` | SDD Lifecycle Governance | Release phases, memory, additive evidence, mutating leases |
+| `pi-trust-and-security` | Pi Trust and Security | Trust controls resource loading, not sandboxing |
+| `pi-native-status-surface` | Pi-Native Status Surface | CLI/doctor/status first; panel/TUI deferred until designed |
 
 ## Mapa de capacidades
 
@@ -57,5 +60,6 @@ graph TD
 
 - Initial specs define product direction; implementation has not started.
 - Pi project-local resources require trust before they load.
-- Pi is not a sandbox; isolation must be provided by the OS, container, VM, or
-  operator workflow.
+- Non-interactive Pi flows do not prompt for trust; use `--approve` only for repositories already reviewed and intentionally trusted.
+- Pi is not a sandbox; package resources and project-local `.pi/**` must be treated as executable code, and isolation must be provided by the OS, container, VM, or operator workflow.
+- The old `dadaia-workspace` panel is a source of capability ideas, not an implementation to copy; Pi-native visibility starts with CLI/doctor/status surfaces.

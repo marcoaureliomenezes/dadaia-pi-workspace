@@ -1,0 +1,10 @@
+export { assertContextName, assertRepoSlug, type ContextState, type SpecContextRecord, type SpecContextRegistry } from "./core/context.js";
+export { type HandoffArtifactType, type HandoffRecord, type HandoffVerdict, validateHandoffRecord } from "./core/handoff.js";
+export { VERSION } from "./core/version.js";
+export { STATE_DIR_NAME, defaultWorkspaceLayout, type WorkspaceLayout } from "./core/workspace.js";
+export { ContextService } from "./features/context/service.js";
+export { SessionBindingService } from "./features/context/sessionBinding.js";
+export * from "./features/gate/index.js";
+export * from "./features/hooks/index.js";
+export * from "./features/status/index.js";
+export * from "./pi/index.js";
