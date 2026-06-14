@@ -41,6 +41,9 @@ node dist/src/cli/main.js doctor
 node dist/src/cli/main.js specs doctor
 node dist/src/cli/main.js context list
 node dist/src/cli/main.js context status --session-id <id>
+# In Pi after package load: /dadaia-bind <context> [--mode read|implementation|review] [--release <id>]
+# In Pi after package load: /dadaia-status
+# In Pi after package load: /dadaia-release
 npm test
 npm run build
 ```

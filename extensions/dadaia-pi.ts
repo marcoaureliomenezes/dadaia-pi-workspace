@@ -3,6 +3,7 @@
 
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { bindCurrentSession, releaseCurrentSession, statusCurrentSession } from "../dist/src/pi/extensionCommands.js";
 
 type CommandContext = {
   cwd: string;
@@ -113,11 +114,36 @@ export default function dadaiaPiExtension(pi: ExtensionApi): void {
     return readJson<Binding>(sessionRecordPath(ctx.cwd, ctx.sessionManager.getSessionId()));
   }
 
+  pi.registerCommand("dadaia-bind", {
+    description: "Bind the current Pi session to a dadaia-pi-workspace context",
+    async handler(args, ctx) {
+      try {
+        ctx.ui.notify(await bindCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId(), args, process.pid), "info");
+      } catch (error) {
+        ctx.ui.notify((error as Error).message, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("dadaia-release", {
+    description: "Release the current Pi session's dadaia-pi-workspace binding",
+    async handler(_args, ctx) {
+      try {
+        ctx.ui.notify(await releaseCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId()), "info");
+      } catch (error) {
+        ctx.ui.notify((error as Error).message, "error");
+      }
+    },
+  });
+
   pi.registerCommand("dadaia-status", {
     description: "Show dadaia-pi-workspace package status for the current Pi session",
     async handler(_args, ctx) {
-      const binding = await bindingFor(ctx);
-      ctx.ui.notify(binding ? `dadaia-pi bound to ${binding.context} (${binding.mode})` : "dadaia-pi session is not bound", "info");
+      try {
+        ctx.ui.notify(await statusCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId()), "info");
+      } catch (error) {
+        ctx.ui.notify((error as Error).message, "error");
+      }
     },
   });
 

@@ -80,6 +80,10 @@ Useful commands:
 node dist/src/cli/main.js specs scaffold
 node dist/src/cli/main.js specs doctor
 node dist/src/cli/main.js status --session-id <id>
+# Pi extension commands after package trust/load:
+# /dadaia-bind <context> [--mode read|implementation|review] [--release <id>]
+# /dadaia-status
+# /dadaia-release
 node dist/src/cli/main.js context create <name> --repo <slug> --url <url>
 node dist/src/cli/main.js context bind <name> --session-id <id> --mode implementation --release <release-id>
 node dist/src/cli/main.js hooks install
