@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import type { SpecContextRecord } from "../core/context.js";
 import type { DoctorReport } from "../core/issues.js";
 import { VERSION } from "../core/version.js";
@@ -9,6 +12,7 @@ import { emitSecurityApproval, formatHandoffItem, listHandoffs, validateHandoffF
 import { installAllHooks, preCommitCheck, prePushCheck, uninstallAllHooks } from "../features/hooks/index.js";
 import { listMemoryCatalog, showMemoryAtom } from "../features/memory/index.js";
 import { buildWorkspaceStatus, type WorkspaceStatusReport } from "../features/status/index.js";
+import { doctorWorkspaceInstall, initWorkspace, installWorkspace } from "../features/workspace/index.js";
 import { writeProjectSettings } from "../pi/projectSettings.js";
 import { runSpecsDoctor } from "../features/specs/doctor.js";
 import { scaffoldSpecs } from "../features/specs/scaffold.js";
@@ -22,6 +26,9 @@ function usage(): string {
     "  dadaia-pi --version",
     "  dadaia-pi doctor [--json]",
     "  dadaia-pi status [--session-id <id>] [--context <name>] [--json]",
+    "  dadaia-pi workspace init [--package-root <path>] [--skip-assets] [--json]",
+    "  dadaia-pi workspace install [--package-root <path>] [--json]",
+    "  dadaia-pi workspace doctor [--package-root <path>] [--json]",
     "  dadaia-pi memory list [--context <name>] [--json]",
     "  dadaia-pi memory show <slug> [--context <name>] [--json]",
     "  dadaia-pi specs scaffold [--specs-dir <path>]",
@@ -47,6 +54,7 @@ function usage(): string {
     "Commands:",
     "  doctor          Check workspace/runtime state",
     "  status          Summarize workspace, context, binding, release, tasks, and evidence",
+    "  workspace       Scaffold, install, and doctor instantiated workspace resources",
     "  specs scaffold  Create a canonical specs tree if files are missing",
     "  specs doctor    Check committed SDD specs structure",
     "  context         Manage Spec Context Project registry and ALIVE/DEAD lifecycle",
@@ -55,6 +63,14 @@ function usage(): string {
     "  hooks           Install and run git chokepoint checks",
     "  package         Generate consumer Pi project settings",
   ].join("\n");
+}
+
+function defaultPackageRoot(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+}
+
+function packageRoot(argv: readonly string[]): string {
+  return resolve(optionValue(argv, "--package-root") ?? defaultPackageRoot());
 }
 
 function optionValue(argv: readonly string[], name: string): string | undefined {
@@ -131,6 +147,31 @@ async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
   return Buffer.concat(chunks).toString("utf8");
+}
+
+async function runWorkspace(argv: readonly string[], cwd: string): Promise<number> {
+  const [, subcommand] = argv;
+  const json = hasFlag(argv, "--json");
+  const root = packageRoot(argv);
+  if (subcommand === "init") {
+    const result = await initWorkspace(cwd, root, hasFlag(argv, "--skip-assets"));
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`${result.actions.join("\n")}\n`);
+    return 0;
+  }
+  if (subcommand === "install") {
+    const result = await installWorkspace(cwd, root);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`${result.actions.join("\n")}\n`);
+    return 0;
+  }
+  if (subcommand === "doctor") {
+    const result = await doctorWorkspaceInstall(cwd, root);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`${result.reports.join("\n")}\n`);
+    return result.ok ? 0 : 1;
+  }
+  throw new Error(`Unknown workspace command: ${subcommand ?? ""}`);
 }
 
 async function runMemory(argv: readonly string[], cwd: string): Promise<number> {
@@ -340,6 +381,10 @@ export async function run(argv: readonly string[], cwd = process.cwd()): Promise
     const report = await buildWorkspaceStatus(cwd, input);
     printStatus(report, hasFlag(argv, "--json"));
     return 0;
+  }
+
+  if (command === "workspace") {
+    return runWorkspace(argv, cwd);
   }
 
   if (command === "memory") {

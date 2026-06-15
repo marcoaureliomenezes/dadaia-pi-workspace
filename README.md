@@ -77,6 +77,9 @@ The package ships operational skills for the full lifecycle:
 Useful commands:
 
 ```bash
+node dist/src/cli/main.js workspace init --package-root repos/dadaia-pi-workspace
+node dist/src/cli/main.js workspace install --package-root repos/dadaia-pi-workspace
+node dist/src/cli/main.js workspace doctor --package-root repos/dadaia-pi-workspace
 node dist/src/cli/main.js specs scaffold
 node dist/src/cli/main.js specs doctor
 node dist/src/cli/main.js status --session-id <id>

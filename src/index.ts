@@ -9,4 +9,5 @@ export * from "./features/handoff/index.js";
 export * from "./features/hooks/index.js";
 export * from "./features/memory/index.js";
 export * from "./features/status/index.js";
+export * from "./features/workspace/index.js";
 export * from "./pi/index.js";
