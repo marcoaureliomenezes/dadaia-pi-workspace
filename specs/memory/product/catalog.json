@@ -72,11 +72,11 @@
       "slug": "pi-native-status-surface",
       "title": "Pi-Native Status Surface",
       "category": "product",
-      "tldr": "Workspace visibility starts with `dadaia-pi status`; panel or TUI work is deferred until designed.",
-      "summary": "Records the decision to preserve useful panel capabilities from dadaia-workspace through a read-only CLI status command while deferring any browser/server implementation until a Pi-native security and process design exists.",
+      "tldr": "Workspace visibility includes `dadaia-pi status` and a loopback browser panel served by `dadaia-pi panel` at http://127.0.0.1:4999/.",
+      "summary": "Records the current visibility surfaces. `dadaia-pi status` gives CLI visibility, `/dadaia-status` gives Pi extension status, and `dadaia-pi panel` starts a local loopback browser server with Overview, Contexts, Memory, Handoffs, and Raw API data. The panel is read-only, loopback-only, stdlib Node HTTP, and intentionally does not expose remote bind or mutation endpoints.",
       "path": "specs/memory/product/pi-native-status-surface.md",
       "tags": ["status", "panel", "tui", "visibility"],
-      "token_estimate": 220,
+      "token_estimate": 260,
       "agent_tier": "self-pull",
       "depends_on": ["pi-native-agent-surface", "sdd-lifecycle-governance"]
     }

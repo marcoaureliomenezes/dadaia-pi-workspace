@@ -42,7 +42,7 @@ documents Pi trust honestly: resource loading approval is not sandboxing.
 | `pi-native-agent-surface` | Pi-Native Agent Surface | Extensions, skills, prompts, packages, and AGENTS.md |
 | `sdd-lifecycle-governance` | SDD Lifecycle Governance | Release phases, memory, additive evidence, mutating leases |
 | `pi-trust-and-security` | Pi Trust and Security | Trust controls resource loading, not sandboxing |
-| `pi-native-status-surface` | Pi-Native Status Surface | CLI/doctor/status first; panel/TUI deferred until designed |
+| `pi-native-status-surface` | Pi-Native Status Surface | `dadaia-pi status` plus loopback browser panel at http://127.0.0.1:4999/ |
 
 ## Mapa de capacidades
 

@@ -1,8 +1,10 @@
 // Pi package extension for dadaia-pi-workspace.
 // T-005 adds first-pass READ tool restriction plus tool_call/user_bash blocking.
 
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { bindCurrentSession, releaseCurrentSession, statusCurrentSession } from "../dist/src/pi/extensionCommands.js";
 
 type SimpleComponent = { render(width: number): string[]; invalidate(): void };
@@ -42,13 +44,19 @@ type Binding = {
 
 const READ_MODE_TOOLS = ["read", "grep", "find", "ls", "bash"] as const;
 
-function panelComponent(lines: readonly string[]): SimpleComponent {
-  return {
-    render(width: number): string[] {
-      return ["dadaia-pi workspace", "─".repeat(Math.min(width, 24)), ...lines].map((line) => line.slice(0, width));
-    },
-    invalidate() {},
-  };
+function splitCommandArgs(input: string): string[] {
+  return [...input.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((match) => match[1] ?? match[2] ?? match[3] ?? "");
+}
+
+function cliPath(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "src", "cli", "main.js");
+}
+
+function launchPanelServer(cwd: string, args: string): string {
+  const panelArgs = [cliPath(), "panel", ...splitCommandArgs(args)];
+  const child = spawn(process.execPath, panelArgs, { cwd, detached: true, stdio: "ignore" });
+  child.unref();
+  return "dadaia-pi panel starting at http://127.0.0.1:4999/";
 }
 
 async function readJson<T>(path: string): Promise<T | undefined> {
@@ -162,12 +170,10 @@ export default function dadaiaPiExtension(pi: ExtensionApi): void {
   });
 
   pi.registerCommand("dadaia-panel", {
-    description: "Show a read-only dadaia-pi workspace status panel",
-    async handler(_args, ctx) {
+    description: "Start the local dadaia-pi browser panel server",
+    handler(args, ctx) {
       try {
-        const status = await statusCurrentSession(ctx.cwd, ctx.sessionManager.getSessionId());
-        if (ctx.ui.custom) ctx.ui.custom(panelComponent(status.split("; ").map((line) => line.trim())), { overlay: true });
-        else ctx.ui.notify(status, "info");
+        ctx.ui.notify(launchPanelServer(ctx.cwd, args), "info");
       } catch (error) {
         ctx.ui.notify((error as Error).message, "error");
       }

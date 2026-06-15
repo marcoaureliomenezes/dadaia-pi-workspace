@@ -11,6 +11,7 @@ import { runWorkspaceDoctor } from "../features/doctor/workspaceDoctor.js";
 import { emitSecurityApproval, formatHandoffItem, listHandoffs, validateHandoffFile } from "../features/handoff/index.js";
 import { installAllHooks, preCommitCheck, prePushCheck, uninstallAllHooks } from "../features/hooks/index.js";
 import { listMemoryCatalog, showMemoryAtom } from "../features/memory/index.js";
+import { runPanel } from "../features/panel/index.js";
 import { buildWorkspaceStatus, type WorkspaceStatusReport } from "../features/status/index.js";
 import { doctorWorkspaceInstall, initWorkspace, installWorkspace } from "../features/workspace/index.js";
 import { writeProjectSettings } from "../pi/projectSettings.js";
@@ -26,6 +27,7 @@ function usage(): string {
     "  dadaia-pi --version",
     "  dadaia-pi doctor [--json]",
     "  dadaia-pi status [--session-id <id>] [--context <name>] [--json]",
+    "  dadaia-pi panel [--port <port>] [--bind 127.0.0.1] [--no-open]",
     "  dadaia-pi workspace init [--package-root <path>] [--skip-assets] [--json]",
     "  dadaia-pi workspace install [--package-root <path>] [--json]",
     "  dadaia-pi workspace doctor [--package-root <path>] [--json]",
@@ -55,6 +57,7 @@ function usage(): string {
     "  doctor          Check workspace/runtime state",
     "  status          Summarize workspace, context, binding, release, tasks, and evidence",
     "  workspace       Scaffold, install, and doctor instantiated workspace resources",
+    "  panel           Start the local browser panel at http://127.0.0.1:4999/",
     "  specs scaffold  Create a canonical specs tree if files are missing",
     "  specs doctor    Check committed SDD specs structure",
     "  context         Manage Spec Context Project registry and ALIVE/DEAD lifecycle",
@@ -385,6 +388,15 @@ export async function run(argv: readonly string[], cwd = process.cwd()): Promise
 
   if (command === "workspace") {
     return runWorkspace(argv, cwd);
+  }
+
+  if (command === "panel") {
+    const bind = optionValue(argv, "--bind") ?? "127.0.0.1";
+    const portText = optionValue(argv, "--port") ?? "4999";
+    const port = Number.parseInt(portText, 10);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`Invalid panel port: ${portText}`);
+    await runPanel(cwd, { host: bind, port, open: !hasFlag(argv, "--no-open") });
+    return 0;
   }
 
   if (command === "memory") {

@@ -83,6 +83,8 @@ node dist/src/cli/main.js workspace doctor --package-root repos/dadaia-pi-worksp
 node dist/src/cli/main.js specs scaffold
 node dist/src/cli/main.js specs doctor
 node dist/src/cli/main.js status --session-id <id>
+node dist/src/cli/main.js panel              # opens http://127.0.0.1:4999/
+node dist/src/cli/main.js panel --no-open    # start server without opening browser
 node dist/src/cli/main.js memory list --context <name>
 node dist/src/cli/main.js memory show <slug> --context <name>
 node dist/src/cli/main.js handoff list --context <name>
