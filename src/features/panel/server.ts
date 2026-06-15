@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { isIP } from "node:net";
 
 import { buildWorkspaceStatus } from "../status/index.js";
-import { listMemoryCatalog } from "../memory/index.js";
+import { listMemoryCatalog, showMemoryAtom } from "../memory/index.js";
 import { listHandoffs } from "../handoff/index.js";
 import { VERSION } from "../../core/version.js";
 
@@ -33,6 +33,10 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload);
 }
 
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
 function html(res: ServerResponse, body: string): void {
   res.writeHead(200, {
     "content-type": "text/html; charset=utf-8",
@@ -60,6 +64,10 @@ function isAllowedHost(header: string | undefined, bind: string): boolean {
   return host === bind || LOOPBACK_HOSTS.has(host) || isIP(host) === 4 && host.startsWith("127.");
 }
 
+function memoryHtml(context: string | undefined, slug: string, title: string | undefined, content: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title ?? slug)} · dadaia-pi memory</title><style>body{margin:0;background:#111816;color:#eef8f2;font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:980px;margin:0 auto;padding:28px}a{color:#87d6ad}.muted{color:#9fb3aa}pre{white-space:pre-wrap;background:#0b100e;border:1px solid #2b4038;border-radius:14px;padding:18px;overflow:auto}</style></head><body><main><p><a href="/">← panel</a></p><h1>${escapeHtml(title ?? slug)}</h1><p class="muted">context=${escapeHtml(context ?? "workspace")} · slug=${escapeHtml(slug)}</p><pre>${escapeHtml(content)}</pre></main></body></html>`;
+}
+
 function indexHtml(): string {
   return `<!doctype html>
 <html lang="en">
@@ -82,7 +90,7 @@ function indexHtml(): string {
 <main>
 <section id="overview" class="tab"><div class="grid" id="overview-grid"></div></section>
 <section id="contexts" class="tab hidden"><div class="card"><table><thead><tr><th>Name</th><th>State</th><th>Repo</th><th>Branch</th><th>Evidence</th></tr></thead><tbody id="contexts-table"></tbody></table></div></section>
-<section id="memory" class="tab hidden"><div class="card"><table><thead><tr><th>Slug</th><th>Title</th><th>TLDR</th></tr></thead><tbody id="memory-table"></tbody></table></div></section>
+<section id="memory" class="tab hidden"><div class="card"><table><thead><tr><th>Context</th><th>Slug</th><th>Title</th><th>TLDR</th></tr></thead><tbody id="memory-table"></tbody></table></div></section>
 <section id="handoffs" class="tab hidden"><div class="card"><table><thead><tr><th>Context</th><th>Verdict</th><th>Agent</th><th>Produced</th><th>Path</th></tr></thead><tbody id="handoffs-table"></tbody></table></div></section>
 <section id="raw" class="tab hidden"><pre id="raw-json">loading...</pre></section>
 </main>
@@ -91,12 +99,14 @@ const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 for (const b of document.querySelectorAll('button[data-tab]')) b.onclick = () => { for (const x of document.querySelectorAll('button[data-tab]')) x.classList.toggle('active', x===b); for (const s of document.querySelectorAll('.tab')) s.classList.toggle('hidden', s.id!==b.dataset.tab); };
 async function get(path){ const r = await fetch(path); if(!r.ok) throw new Error(path + ' -> ' + r.status); return r.json(); }
 async function boot(){
-  const [health,status,memory,handoffs] = await Promise.all([get('/health'),get('/api/status'),get('/api/memory'),get('/api/handoffs')]);
+  const [health,status,handoffs] = await Promise.all([get('/health'),get('/api/status'),get('/api/handoffs')]);
+  const memoryGroups = await Promise.all(status.contexts.map(async c => ({ context: c.name, entries: await get('/api/memory?context=' + encodeURIComponent(c.name)).catch(() => []) })));
+  const memory = memoryGroups.flatMap(g => g.entries.map(m => ({...m, context: g.context})));
   document.getElementById('overview-grid').innerHTML = [
     ['Workspace', status.root], ['Doctor', status.doctor.errors + ' error(s), ' + status.doctor.warnings + ' warning(s)'], ['Contexts', status.contexts.length], ['Version', health.version]
   ].map(([k,v]) => '<div class="card"><div class="muted">'+esc(k)+'</div><h2>'+esc(v)+'</h2></div>').join('');
   document.getElementById('contexts-table').innerHTML = status.contexts.map(c => '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.state)+'</td><td>'+esc(c.repoSlug)+'</td><td>'+esc(c.branch)+'</td><td>'+esc((c.evidence?.handoffs??0)+' handoffs / '+(c.evidence?.reports??0)+' reports')+'</td></tr>').join('') || '<tr><td colspan="5" class="muted">No contexts</td></tr>';
-  document.getElementById('memory-table').innerHTML = memory.map(m => '<tr><td>'+esc(m.slug)+'</td><td>'+esc(m.title)+'</td><td>'+esc(m.tldr)+'</td></tr>').join('') || '<tr><td colspan="3" class="muted">No memory catalog</td></tr>';
+  document.getElementById('memory-table').innerHTML = memory.map(m => '<tr><td>'+esc(m.context)+'</td><td><a href="/memory/'+encodeURIComponent(m.slug)+'?context='+encodeURIComponent(m.context)+'">'+esc(m.slug)+'</a></td><td>'+esc(m.title)+'</td><td>'+esc(m.tldr)+'</td></tr>').join('') || '<tr><td colspan="4" class="muted">No memory catalog</td></tr>';
   document.getElementById('handoffs-table').innerHTML = handoffs.map(h => '<tr><td>'+esc(h.context)+'</td><td>'+esc(h.verdict)+'</td><td>'+esc(h.agent)+'</td><td>'+esc(h.producedAt)+'</td><td>'+esc(h.path)+'</td></tr>').join('') || '<tr><td colspan="5" class="muted">No handoffs</td></tr>';
   document.getElementById('raw-json').textContent = JSON.stringify({health,status,memory,handoffs}, null, 2);
 }
@@ -148,6 +158,18 @@ export async function startPanelServer(root: string, options: PanelOptions = {})
       }
       if (url.pathname === "/api/memory") {
         json(res, 200, await listMemoryCatalog(root, url.searchParams.get("context") ?? undefined));
+        return;
+      }
+      if (url.pathname.startsWith("/api/memory/")) {
+        const slug = decodeURIComponent(url.pathname.slice("/api/memory/".length));
+        json(res, 200, await showMemoryAtom(root, slug, url.searchParams.get("context") ?? undefined));
+        return;
+      }
+      if (url.pathname.startsWith("/memory/")) {
+        const slug = decodeURIComponent(url.pathname.slice("/memory/".length));
+        const context = url.searchParams.get("context") ?? undefined;
+        const atom = await showMemoryAtom(root, slug, context);
+        html(res, memoryHtml(context, slug, atom.title, atom.content));
         return;
       }
       if (url.pathname === "/api/handoffs") {
