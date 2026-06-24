@@ -1,6 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { approvedSecurityReleaseCandidatesForSha } from "../workflows/releaseCandidate.js";
+
 export interface HookCheckResult {
   readonly ok: boolean;
   readonly messages: readonly string[];
@@ -31,6 +33,18 @@ async function collectHandoffFiles(dir: string): Promise<string[]> {
   return result;
 }
 
+async function securityWorkflowManifests(workspaceRoot: string): Promise<unknown[]> {
+  const manifests: unknown[] = [];
+  for (const file of await collectHandoffFiles(join(workspaceRoot, ".dadaia-pi", "workflows"))) {
+    try {
+      manifests.push(JSON.parse(await readFile(file, "utf8")));
+    } catch {
+      // Doctor owns malformed workflow diagnostics.
+    }
+  }
+  return manifests;
+}
+
 async function approvedSecurityShas(workspaceRoot: string): Promise<Set<string>> {
   const shas = new Set<string>();
   for (const file of await collectHandoffFiles(join(workspaceRoot, ".dadaia-pi", "handoff"))) {
@@ -54,12 +68,21 @@ export async function prePushCheck(workspaceRoot: string, stdin: string): Promis
   const shas = pushedShas(stdin);
   if (shas.length === 0) return { ok: true, messages: ["pre-push check ok: no commit shas require security verdict"] };
   const approved = await approvedSecurityShas(workspaceRoot);
-  const missing = shas.filter((sha) => !approved.has(sha));
+  const manifests = (await securityWorkflowManifests(workspaceRoot)) as Parameters<typeof approvedSecurityReleaseCandidatesForSha>[3];
+  const missing: string[] = [];
+  const approvedByRc: string[] = [];
+  for (const sha of shas) {
+    if (approved.has(sha)) continue;
+    const rcMatches = await approvedSecurityReleaseCandidatesForSha(workspaceRoot, undefined, sha, manifests);
+    if (rcMatches.length > 0) approvedByRc.push(`${sha}:${rcMatches.join(",")}`);
+    else missing.push(sha);
+  }
   if (missing.length > 0) {
     return {
       ok: false,
-      messages: missing.map((sha) => `pre-push blocked: missing security-reviewer APPROVED handoff for commit ${sha}`),
+      messages: missing.map((sha) => `pre-push blocked: commit ${sha} is outside any APPROVED security-review RC and has no exact security-reviewer handoff`),
     };
   }
-  return { ok: true, messages: [`pre-push check ok: ${shas.length} commit(s) have security approval`] };
+  const suffix = approvedByRc.length > 0 ? `; RC approvals: ${approvedByRc.join("; ")}` : "";
+  return { ok: true, messages: [`pre-push check ok: ${shas.length} commit(s) have security approval${suffix}`] };
 }

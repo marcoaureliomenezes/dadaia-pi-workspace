@@ -10,7 +10,11 @@
       "tldr": "Pi-only rebuild of dadaia-workspace ideas: SDD-native, multi-project, memory-backed, and lifecycle-governed.",
       "summary": "Defines the product identity and non-goals for dadaia-pi-workspace. It preserves the ideas of dadaia-workspace without carrying its multi-harness implementation.",
       "path": "specs/memory/product/product-vision.md",
-      "tags": ["vision", "pi", "sdd"],
+      "tags": [
+        "vision",
+        "pi",
+        "sdd"
+      ],
       "token_estimate": 160,
       "agent_tier": "self-pull",
       "depends_on": []
@@ -23,10 +27,16 @@
       "tldr": "One canonical specs tree bound to one repository, session-bindable for Pi.",
       "summary": "Defines the central unit of work in dadaia-pi-workspace: a repository governed by a committed specs tree and a workspace registry record.",
       "path": "specs/memory/product/spec-context-projects.md",
-      "tags": ["context", "specs", "memory"],
+      "tags": [
+        "context",
+        "specs",
+        "memory"
+      ],
       "token_estimate": 135,
       "agent_tier": "self-pull",
-      "depends_on": ["product-vision"]
+      "depends_on": [
+        "product-vision"
+      ]
     },
     {
       "rank": 3,
@@ -36,10 +46,17 @@
       "tldr": "The agentic surface is Pi resources only: extensions, skills, prompt templates, packages, settings, and AGENTS.md.",
       "summary": "Defines how dadaia-pi-workspace uses Pi's documented extension points instead of projecting assets for other harnesses.",
       "path": "specs/memory/product/pi-native-agent-surface.md",
-      "tags": ["pi", "extensions", "skills", "prompts"],
+      "tags": [
+        "pi",
+        "extensions",
+        "skills",
+        "prompts"
+      ],
       "token_estimate": 190,
       "agent_tier": "self-pull",
-      "depends_on": ["product-vision"]
+      "depends_on": [
+        "product-vision"
+      ]
     },
     {
       "rank": 4,
@@ -49,10 +66,18 @@
       "tldr": "SPEC/PLAN/TASKS approval, additive evidence, mutating leases, review checkpoints, and closure memory updates.",
       "summary": "Defines the lifecycle rules that make Pi sessions safe and organized across multiple repos.",
       "path": "specs/memory/product/sdd-lifecycle-governance.md",
-      "tags": ["sdd", "lifecycle", "lease", "review"],
+      "tags": [
+        "sdd",
+        "lifecycle",
+        "lease",
+        "review"
+      ],
       "token_estimate": 170,
       "agent_tier": "self-pull",
-      "depends_on": ["spec-context-projects", "pi-native-agent-surface"]
+      "depends_on": [
+        "spec-context-projects",
+        "pi-native-agent-surface"
+      ]
     },
     {
       "rank": 5,
@@ -62,23 +87,79 @@
       "tldr": "Pi project trust controls resource loading, not sandboxing; package and .pi resources are executable-code risk.",
       "summary": "Defines the honest security posture for dadaia-pi-workspace first-run and operations. Operators must understand trust, non-interactive approval, and no-sandbox limits before loading package or project-local resources.",
       "path": "specs/memory/product/pi-trust-and-security.md",
-      "tags": ["pi", "security", "trust"],
+      "tags": [
+        "pi",
+        "security",
+        "trust"
+      ],
       "token_estimate": 260,
       "agent_tier": "inject",
-      "depends_on": ["pi-native-agent-surface"]
+      "depends_on": [
+        "pi-native-agent-surface"
+      ]
     },
     {
       "rank": 6,
       "slug": "pi-native-status-surface",
       "title": "Pi-Native Status Surface",
       "category": "product",
-      "tldr": "Workspace visibility includes `dadaia-pi status` and a loopback browser panel served by `dadaia-pi panel` at http://127.0.0.1:4999/.",
-      "summary": "Records the current visibility surfaces. `dadaia-pi status` gives CLI visibility, `/dadaia-status` gives Pi extension status, and `dadaia-pi panel` starts a local loopback browser server with Overview, Contexts, Memory, Handoffs, and Raw API data. The panel is read-only, loopback-only, stdlib Node HTTP, and intentionally does not expose remote bind or mutation endpoints.",
+      "tldr": "Python `dadaia-pi status` plus a Python-backed loopback browser panel served by `dadaia-pi panel` at http://127.0.0.1:4999/.",
+      "summary": "Records the current visibility surfaces. `dadaia-pi status` gives Python CLI visibility, `/dadaia-status` gives Pi extension status through the Python bridge, and `dadaia-pi panel` starts a local loopback browser server with status, context, memory, handoff, workflow, and report APIs. The panel is read-only and loopback-only.",
       "path": "specs/memory/product/pi-native-status-surface.md",
-      "tags": ["status", "panel", "tui", "visibility"],
+      "tags": [
+        "status",
+        "panel",
+        "tui",
+        "visibility"
+      ],
       "token_estimate": 260,
       "agent_tier": "self-pull",
-      "depends_on": ["pi-native-agent-surface", "sdd-lifecycle-governance"]
+      "depends_on": [
+        "pi-native-agent-surface",
+        "sdd-lifecycle-governance"
+      ]
+    },
+    {
+      "rank": 7,
+      "slug": "headless-workflow-orchestration",
+      "title": "Headless Workflow Orchestration",
+      "category": "product",
+      "tldr": "Python `dadaia-pi workflow` wraps lifecycle rituals in deterministic commands with Pi RPC/headless reasoning and scoped evidence.",
+      "summary": "Defines the workflow orchestration layer used to reduce slop from agent-only rule following. Python workflows require explicit context, optional release scope, deterministic checks, optional Pi RPC/headless execution, and additive manifest/report evidence under .dadaia-pi.",
+      "path": "specs/memory/product/headless-workflow-orchestration.md",
+      "tags": [
+        "workflow",
+        "rpc",
+        "sdd",
+        "lifecycle"
+      ],
+      "token_estimate": 360,
+      "agent_tier": "self-pull",
+      "depends_on": [
+        "sdd-lifecycle-governance",
+        "pi-native-agent-surface"
+      ]
+    },
+    {
+      "rank": 8,
+      "slug": "dadaia-workspace-merge-readiness",
+      "title": "Dadaia Workspace Merge Readiness",
+      "category": "product",
+      "tldr": "Pi support is prepared to merge into dadaia-workspace as a Python-owned `pi` harness adapter with JS/TS only for Pi extension resources.",
+      "summary": "Records the current merge-prep posture after the Python migration. `dadaia-pi-workspace` should feed a future `dadaia-workspace` release that adds Pi as a harness target beside Claude Code, Codex, and OpenCode.",
+      "path": "specs/memory/product/dadaia-workspace-merge-readiness.md",
+      "tags": [
+        "pi",
+        "merge",
+        "dadaia-workspace",
+        "harness"
+      ],
+      "token_estimate": 420,
+      "agent_tier": "self-pull",
+      "depends_on": [
+        "pi-native-agent-surface",
+        "headless-workflow-orchestration"
+      ]
     }
   ]
 }

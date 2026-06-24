@@ -33,7 +33,8 @@ release_origin: bootstrap-pi-native-specs
 | Lease | acquire, renew, stale reclaim, live foreign yield |
 | Pi extension | project-trust behavior, context injection, session-id binding, tool-call blocking, user-bash interception, READ active-tool restriction |
 | Pi package | package manifest/resource discovery and project-local load after trust |
-| Git hooks | pre-commit and pre-push behavior |
+| Git hooks | pre-commit and pre-push behavior, including exact reserved task write-set enforcement |
+| Workflow governance | phase status/advance, optional research transition, accepted manifest gates, closure task-completion gate |
 | Handoffs | minimal JSON schema validation and `.dadaia-pi/handoff/<context>/` doctor coverage |
 
 ## Diferencial
@@ -42,6 +43,7 @@ release_origin: bootstrap-pi-native-specs
 - No feature ships without delete/orphan, dirty input, and missing dependency
   coverage or an explicit justified absence.
 - No state file ships without a doctor check and cleanup rule.
+- Workflow manifests used as phase gates must match context, release, workflow id, and `sdk.accepted === true` before they are accepted as lifecycle evidence.
 - Machine-readable handoffs must validate `schemaVersion`, context/session/agent/timestamp/scope, artifact type, metrics object, and findings array before they are used as lifecycle evidence.
 - No custom mutating Pi tool ships without test coverage that it uses the file
   mutation queue or a documented reason it cannot race with other writes.

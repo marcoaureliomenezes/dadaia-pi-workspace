@@ -14,6 +14,22 @@ import { listMemoryCatalog, showMemoryAtom } from "../features/memory/index.js";
 import { runPanel } from "../features/panel/index.js";
 import { buildWorkspaceStatus, type WorkspaceStatusReport } from "../features/status/index.js";
 import { doctorWorkspaceInstall, initWorkspace, installWorkspace } from "../features/workspace/index.js";
+import {
+  advanceWorkflowPhase,
+  applyControlledPatch,
+  bundleReleaseEvidence,
+  checkBacklogHygiene,
+  consumeBacklogItem,
+  commitRangeFromEndpoints,
+  createReleaseCandidate,
+  getWorkflowDefinition,
+  inspectReleaseCandidate,
+  listReleaseCandidates,
+  listWorkflowDefinitions,
+  runWorkflow,
+  workflowGovernanceStatus,
+  workflowReadiness,
+} from "../features/workflows/index.js";
 import { writeProjectSettings } from "../pi/projectSettings.js";
 import { runSpecsDoctor } from "../features/specs/doctor.js";
 import { scaffoldSpecs } from "../features/specs/scaffold.js";
@@ -47,6 +63,19 @@ function usage(): string {
     "  dadaia-pi handoff validate <file> [--json]",
     "  dadaia-pi handoff list [--context <name>] [--json]",
     "  dadaia-pi handoff approve-security --context <name> --commit <sha> [--session-id <id>] [--scope <text>] [--release <id>] [--json]",
+    "  dadaia-pi workflow list [--json]",
+    "  dadaia-pi workflow show <workflow> [--json]",
+    "  dadaia-pi workflow status --context <name> --release <id> [--json]",
+    "  dadaia-pi workflow advance --context <name> --release <id> --to <phase> [--json]",
+    "  dadaia-pi workflow run <workflow> --context <name> [--release <id>] [--prompt-file <path>] [--model <pattern>] [--verdict APPROVED|NEEDS_CHANGES|REJECTED] [--rc-id <id>] [--approve] [--dry-run] [--json]",
+    "  dadaia-pi workflow backlog-check --context <name> --prompt-file <path> [--json]",
+    "  dadaia-pi workflow backlog-consume --context <name> --release <id> --backlog <path> [--json]",
+    "  dadaia-pi workflow rc create --context <name> --release <id> --rc-id <id> (--commits <range> | --from <base> --to <head>) [--json]",
+    "  dadaia-pi workflow rc list --context <name> --release <id> [--json]",
+    "  dadaia-pi workflow rc inspect --context <name> --release <id> --rc-id <id> [--json]",
+    "  dadaia-pi workflow patch apply --context <name> --release <id> --patch-file <path> --approve [--json]",
+    "  dadaia-pi workflow evidence bundle --context <name> --release <id> [--prune] [--json]",
+    "  dadaia-pi workflow readiness --context <name> --release <id> [--json]",
     "  dadaia-pi hooks install [--repo-root <path>]",
     "  dadaia-pi hooks uninstall [--repo-root <path>]",
     "  dadaia-pi hooks pre-commit-check [--repo-root <path>]",
@@ -62,6 +91,7 @@ function usage(): string {
     "  specs doctor    Check committed SDD specs structure",
     "  context         Manage Spec Context Project registry and ALIVE/DEAD lifecycle",
     "  handoff        Validate, list, and emit lifecycle handoffs",
+    "  workflow       Run deterministic lifecycle workflows with bounded Pi SDK steps",
     "  memory         Navigate product memory catalog and atoms",
     "  hooks           Install and run git chokepoint checks",
     "  package         Generate consumer Pi project settings",
@@ -245,6 +275,191 @@ async function runHandoff(argv: readonly string[], cwd: string): Promise<number>
   throw new Error(`Unknown handoff command: ${subcommand ?? ""}`);
 }
 
+async function runWorkflowCommand(argv: readonly string[], cwd: string): Promise<number> {
+  const [, subcommand, workflowId] = argv;
+  const json = hasFlag(argv, "--json");
+
+  if (subcommand === "list") {
+    const definitions = listWorkflowDefinitions();
+    if (json) process.stdout.write(`${JSON.stringify(definitions, null, 2)}\n`);
+    else process.stdout.write(`${definitions.map((item) => `${item.id}\t${item.phase}\t${item.title}`).join("\n")}\n`);
+    return 0;
+  }
+
+  if (subcommand === "show") {
+    if (!workflowId) throw new Error("workflow show requires <workflow>");
+    const definition = getWorkflowDefinition(workflowId);
+    if (json) process.stdout.write(`${JSON.stringify(definition, null, 2)}\n`);
+    else process.stdout.write(`${definition.id}\n${definition.title}\n${definition.purpose}\n`);
+    return 0;
+  }
+
+  if (subcommand === "status") {
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    if (!context) throw new Error("workflow status requires --context <name>");
+    if (!release) throw new Error("workflow status requires --release <id>");
+    const status = await workflowGovernanceStatus(cwd, context, release);
+    if (json) process.stdout.write(`${JSON.stringify(status, null, 2)}\n`);
+    else process.stdout.write(`release: ${status.release}\nphase: ${status.phase}\nallowed next: ${status.allowedNext.join(", ") || "none"}\nmissing gates: ${status.gates.filter((gate) => !gate.ok).map((gate) => gate.name).join(", ") || "none"}\n`);
+    return status.canAdvance || status.allowedNext.length === 0 ? 0 : 1;
+  }
+
+  if (subcommand === "advance") {
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    const target = optionValue(argv, "--to");
+    if (!context) throw new Error("workflow advance requires --context <name>");
+    if (!release) throw new Error("workflow advance requires --release <id>");
+    if (!target) throw new Error("workflow advance requires --to <phase>");
+    const status = await advanceWorkflowPhase(cwd, context, release, target);
+    if (json) process.stdout.write(`${JSON.stringify(status, null, 2)}\n`);
+    else process.stdout.write(`advanced ${release} to ${status.phase}\n`);
+    return 0;
+  }
+
+  if (subcommand === "backlog-check") {
+    const context = optionValue(argv, "--context");
+    const promptFile = optionValue(argv, "--prompt-file");
+    if (!context) throw new Error("workflow backlog-check requires --context <name>");
+    if (!promptFile) throw new Error("workflow backlog-check requires --prompt-file <path>");
+    const result = await checkBacklogHygiene(cwd, context, promptFile);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`conflicts: ${result.conflicts.length}\ngrill-me: ${result.grillMeRecord}\n`);
+    return result.conflicts.length > 0 ? 1 : 0;
+  }
+
+  if (subcommand === "backlog-consume") {
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    const backlog = optionValue(argv, "--backlog");
+    if (!context) throw new Error("workflow backlog-consume requires --context <name>");
+    if (!release) throw new Error("workflow backlog-consume requires --release <id>");
+    if (!backlog) throw new Error("workflow backlog-consume requires --backlog <path>");
+    const result = await consumeBacklogItem(cwd, context, release, backlog);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`consumed ${result.path}\n`);
+    return 0;
+  }
+
+  if (subcommand === "rc") {
+    const action = workflowId;
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    if (!context) throw new Error("workflow rc requires --context <name>");
+    if (!release) throw new Error("workflow rc requires --release <id>");
+    if (action === "create") {
+      const rcId = optionValue(argv, "--rc-id");
+      const commits = optionValue(argv, "--commits");
+      const from = optionValue(argv, "--from");
+      const to = optionValue(argv, "--to");
+      if (!rcId) throw new Error("workflow rc create requires --rc-id <id>");
+      const range = commits ?? (from && to ? commitRangeFromEndpoints(from, to) : undefined);
+      if (!range) throw new Error("workflow rc create requires --commits <range> or --from <base> --to <head>");
+      const result = await createReleaseCandidate(cwd, context, release, rcId, range);
+      if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      else process.stdout.write(`created ${result.path}\n`);
+      return 0;
+    }
+    if (action === "list") {
+      const result = await listReleaseCandidates(cwd, context, release);
+      if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      else process.stdout.write(result.map((item) => `${item.id}\t${item.commitRange}`).join("\n") + (result.length > 0 ? "\n" : ""));
+      return 0;
+    }
+    if (action === "inspect") {
+      const rcId = optionValue(argv, "--rc-id");
+      if (!rcId) throw new Error("workflow rc inspect requires --rc-id <id>");
+      const result = await inspectReleaseCandidate(cwd, context, release, rcId);
+      if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      else process.stdout.write([`rc: ${result.id}`, `range: ${result.commitRange}`, `stale: ${result.stale ? "yes" : "no"}`, `reviews: qa=${result.reviewStatus.qa ? "yes" : "no"} security=${result.reviewStatus.security ? "yes" : "no"} code=${result.reviewStatus.code ? "yes" : "no"}`, `commits: ${result.commits.length}`, `changed files: ${result.changedFiles.length}`].join("\n") + "\n");
+      return 0;
+    }
+    throw new Error(`Unknown workflow rc command: ${action ?? ""}`);
+  }
+
+  if (subcommand === "patch") {
+    const action = workflowId;
+    if (action !== "apply") throw new Error(`Unknown workflow patch command: ${action ?? ""}`);
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    const patchFile = optionValue(argv, "--patch-file");
+    if (!context) throw new Error("workflow patch apply requires --context <name>");
+    if (!release) throw new Error("workflow patch apply requires --release <id>");
+    if (!patchFile) throw new Error("workflow patch apply requires --patch-file <path>");
+    const result = await applyControlledPatch(cwd, { context, release, patchFile, approved: hasFlag(argv, "--approve") });
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`applied ${result.applied.length} patch(es); audit: ${result.audit}\n`);
+    return 0;
+  }
+
+  if (subcommand === "evidence") {
+    const action = workflowId;
+    if (action !== "bundle") throw new Error(`Unknown workflow evidence command: ${action ?? ""}`);
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    if (!context) throw new Error("workflow evidence bundle requires --context <name>");
+    if (!release) throw new Error("workflow evidence bundle requires --release <id>");
+    const result = await bundleReleaseEvidence(cwd, { context, release, prune: hasFlag(argv, "--prune") });
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`bundle: ${result.path}${result.pruned.length ? `\npruned: ${result.pruned.length}` : ""}\n`);
+    return 0;
+  }
+
+  if (subcommand === "readiness") {
+    const context = optionValue(argv, "--context");
+    const release = optionValue(argv, "--release");
+    if (!context) throw new Error("workflow readiness requires --context <name>");
+    if (!release) throw new Error("workflow readiness requires --release <id>");
+    const result = await workflowReadiness(cwd, context, release);
+    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    else process.stdout.write(`release: ${result.release}\nphase: ${result.phase}\nscore: ${result.score}\nmissing gates: ${result.missingGates.join(", ") || "none"}\npre-push ready: ${result.prePushReady ? "yes" : "no"}\nclosure ready: ${result.closureReady ? "yes" : "no"}\n`);
+    return result.doctorIssues.some((issue) => (issue as { severity?: string }).severity === "error") ? 1 : 0;
+  }
+
+  if (subcommand === "run") {
+    if (!workflowId) throw new Error("workflow run requires <workflow>");
+    const context = optionValue(argv, "--context");
+    if (!context) throw new Error("workflow run requires --context <name>");
+    const input: {
+      workflowId: string;
+      context: string;
+      release?: string;
+      promptFile?: string;
+      model?: string;
+      approveProjectResources?: boolean;
+      dryRun?: boolean;
+      sessionId?: string;
+      verdict?: "APPROVED" | "NEEDS_CHANGES" | "REJECTED";
+      rcId?: string;
+    } = {
+      workflowId,
+      context,
+      approveProjectResources: hasFlag(argv, "--approve"),
+      dryRun: hasFlag(argv, "--dry-run"),
+    };
+    const release = optionValue(argv, "--release");
+    const promptFile = optionValue(argv, "--prompt-file");
+    const model = optionValue(argv, "--model");
+    const sessionId = optionValue(argv, "--session-id");
+    const verdict = optionValue(argv, "--verdict");
+    const rcId = optionValue(argv, "--rc-id");
+    if (release) input.release = release;
+    if (promptFile) input.promptFile = promptFile;
+    if (model) input.model = model;
+    if (sessionId) input.sessionId = sessionId;
+    if (verdict === "APPROVED" || verdict === "NEEDS_CHANGES" || verdict === "REJECTED") input.verdict = verdict;
+    else if (verdict) throw new Error(`Invalid workflow verdict: ${verdict}`);
+    if (rcId) input.rcId = rcId;
+    const result = await runWorkflow(cwd, input);
+    if (json) process.stdout.write(`${JSON.stringify(result.manifest, null, 2)}\n`);
+    else process.stdout.write(`workflow ${result.manifest.workflowId} wrote ${result.manifest.artifacts.manifest} and ${result.manifest.artifacts.report}\n`);
+    return 0;
+  }
+
+  throw new Error(`Unknown workflow command: ${subcommand ?? ""}`);
+}
+
 async function runHooks(argv: readonly string[], cwd: string): Promise<number> {
   const [, subcommand] = argv;
   const repoRoot = optionValue(argv, "--repo-root") ?? cwd;
@@ -423,6 +638,10 @@ export async function run(argv: readonly string[], cwd = process.cwd()): Promise
 
   if (command === "handoff") {
     return runHandoff(argv, cwd);
+  }
+
+  if (command === "workflow") {
+    return runWorkflowCommand(argv, cwd);
   }
 
   if (command === "hooks") {

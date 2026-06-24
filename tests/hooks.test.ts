@@ -32,7 +32,13 @@ async function createWorkspaceContext(): Promise<{ workspaceRoot: string; repoRo
   await mkdir(join(repoRoot, "specs", "releases", "v1"), { recursive: true });
   await mkdir(join(repoRoot, "src"), { recursive: true });
   await writeFile(join(repoRoot, "specs", "releases", "ACTIVE.md"), "---\nrelease: v1\nphase: IMPLEMENTATION\n---\n", "utf8");
-  await writeFile(join(repoRoot, "specs", "releases", "v1", "TASKS.md"), "# TASKS\n\n**Status:** Aprovado\n\n- [-] T-001 Implement\n", "utf8");
+  await writeFile(join(repoRoot, "specs", "releases", "v1", "TASKS.md"), "# TASKS\n\n**Status:** Aprovado\n\n- [-] T-001 Implement\n  - Write set: `src/index.ts`, `specs/releases/**`\n", "utf8");
+  await mkdir(join(workspaceRoot, ".dadaia-pi", "workflows", "demo"), { recursive: true });
+  await writeFile(
+    join(workspaceRoot, ".dadaia-pi", "workflows", "demo", "implementation.json"),
+    JSON.stringify({ context: "demo", release: "v1", workflowId: "release-implementation", sdk: { accepted: true }, verdict: { value: "APPROVED", blockingFindings: 0 }, orchestration: { engine: "python" } }),
+    "utf8",
+  );
   await writeFile(join(repoRoot, "src", "index.ts"), "export const x = 1;\n", "utf8");
   const add = await git(["add", "src/index.ts", "specs/releases/ACTIVE.md", "specs/releases/v1/TASKS.md"], repoRoot);
   assert.equal(add.code, 0, add.stderr);
@@ -67,11 +73,22 @@ describe("git chokepoints", () => {
     assert.match(result.messages.join("\n"), /DADAIA_PI_SESSION_ID/);
   });
 
-  it("allows mutating commits with matching lease and reserved task", async () => {
+  it("allows mutating commits with matching lease and reserved task write set", async () => {
     const { workspaceRoot, repoRoot } = await createWorkspaceContext();
     await new LeaseStore(workspaceRoot).acquire({ context: "demo", release: "v1", sessionId: "s1", mode: "BOUND_IMPLEMENTATION" });
     const result = await preCommitCheck(workspaceRoot, repoRoot, "s1");
     assert.equal(result.ok, true, result.messages.join("\n"));
+  });
+
+  it("blocks mutating commits outside the reserved task write set", async () => {
+    const { workspaceRoot, repoRoot } = await createWorkspaceContext();
+    await writeFile(join(repoRoot, "src", "other.ts"), "export const y = 2;\n", "utf8");
+    const add = await git(["add", "src/other.ts"], repoRoot);
+    assert.equal(add.code, 0, add.stderr);
+    await new LeaseStore(workspaceRoot).acquire({ context: "demo", release: "v1", sessionId: "s1", mode: "BOUND_IMPLEMENTATION" });
+    const result = await preCommitCheck(workspaceRoot, repoRoot, "s1");
+    assert.equal(result.ok, false);
+    assert.match(result.messages.join("\n"), /outside reserved task write set/);
   });
 
   it("blocks pushed commits without approved security handoff", async () => {
@@ -79,7 +96,35 @@ describe("git chokepoints", () => {
     const stdin = "refs/heads/main abcdef1234567890 refs/heads/main 0000000000000000\n";
     const result = await prePushCheck(workspaceRoot, stdin);
     assert.equal(result.ok, false);
-    assert.match(result.messages.join("\n"), /missing security-reviewer APPROVED/);
+    assert.match(result.messages.join("\n"), /outside any APPROVED security-review RC/);
+  });
+
+  it("allows pushed commits with approved security workflow evidence tied to a matching RC range", async () => {
+    const workspaceRoot = await tmpRoot();
+    await initGitRepo(workspaceRoot);
+    await writeFile(join(workspaceRoot, "README.md"), "base\n", "utf8");
+    await git(["add", "README.md"], workspaceRoot);
+    await git(["commit", "-m", "base"], workspaceRoot);
+    const base = (await git(["rev-parse", "HEAD"], workspaceRoot)).stdout.trim();
+    await writeFile(join(workspaceRoot, "README.md"), "head\n", "utf8");
+    await git(["add", "README.md"], workspaceRoot);
+    await git(["commit", "-m", "head"], workspaceRoot);
+    const head = (await git(["rev-parse", "HEAD"], workspaceRoot)).stdout.trim();
+    await mkdir(join(workspaceRoot, ".dadaia-pi", "workflows", "demo"), { recursive: true });
+    await mkdir(join(workspaceRoot, ".dadaia-pi", "release-candidates", "demo", "v1"), { recursive: true });
+    await writeFile(
+      join(workspaceRoot, ".dadaia-pi", "release-candidates", "demo", "v1", "rc-1.json"),
+      JSON.stringify({ schemaVersion: 1, id: "rc-1", context: "demo", release: "v1", commitRange: `${base}..${head}`, createdAt: new Date().toISOString(), reviews: { qa: [], security: [], code: [] } }),
+      "utf8",
+    );
+    await writeFile(
+      join(workspaceRoot, ".dadaia-pi", "workflows", "demo", "security.json"),
+      JSON.stringify({ context: "demo", release: "v1", workflowId: "security-review", sdk: { accepted: true }, verdict: { value: "APPROVED", blockingFindings: 0 }, releaseCandidate: { id: "rc-1" } }),
+      "utf8",
+    );
+    const stdin = `refs/heads/main ${head} refs/heads/main 0000000000000000\n`;
+    const result = await prePushCheck(workspaceRoot, stdin);
+    assert.equal(result.ok, true, result.messages.join("\n"));
   });
 
   it("allows pushed commits with approved security handoff", async () => {

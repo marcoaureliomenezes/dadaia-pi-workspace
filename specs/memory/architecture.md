@@ -2,40 +2,34 @@
 slug: architecture
 title: Architecture
 category: core
-tldr: "Pi-only SDD workspace: TypeScript CLI, Pi package, Spec Context registry, tool-call gate, git hooks, and memory."
-summary: "Defines the initial architecture for dadaia-pi-workspace. The product is a Pi-native workspace manager, not a multi-harness projection system. It preserves the Spec Context Project, memory, SDD lifecycle, and lease principles while using Pi extensions, skills, prompts, packages, sessions, and git chokepoints as the runtime surface."
+tldr: "Python-first Pi-only SDD workspace: Python CLI/runtime authority, thin JS Pi adapter, browser frontend, specs memory, gates, hooks, workflows, and panel backend."
+summary: "Defines the current architecture for dadaia-pi-workspace. The product remains Pi-only and SDD-native. Python now owns lifecycle/domain behavior; JavaScript/TypeScript is retained only for Pi extension adapter code and browser/front-end compatibility."
 tags:
   - architecture
+  - python
   - pi
   - sdd
   - context
 agent_tier: self-pull
 token_estimate: 950
-last_updated: "2026-06-14"
-release_origin: bootstrap-pi-native-specs
+last_updated: "2026-06-23"
+release_origin: python-cli-core-migration-v1
 ---
 
 ## Visão geral
 
-`dadaia-pi-workspace` is a Pi-native SDD workspace manager.
+`dadaia-pi-workspace` is a Python-first, Pi-native SDD workspace manager.
 
 The architecture has four rings:
 
-1. **CLI ring**: a TypeScript command-line surface for workspace initialization,
-   context lifecycle, release scaffolding, doctor checks, and git hook install.
-2. **Domain ring**: pure TypeScript services for Spec Context Projects, SDD
-   artifacts, path classification, leases, sessions, and memory cataloging.
-3. **Infrastructure ring**: filesystem, git, JSON stores, process probes, and
-   package installation adapters.
-4. **Pi ring**: Pi package resources plus project-local Pi resources: package
-   `extensions/`, `skills/`, and `prompts/` directories; consumer `.pi/settings.json`;
-   project-local `.pi/**` resources after trust; and AGENTS.md instructions.
+1. **Python CLI/runtime ring**: canonical `dadaia-pi` lifecycle commands for workspace initialization, context lifecycle, specs scaffold/doctor, memory navigation, gates, leases, hooks, workflows, status, and the panel backend.
+2. **Python domain ring**: pure Python services for Spec Context Projects, SDD artifacts, path classification, leases, sessions, memory cataloging, workflow evidence, and Pi RPC/headless orchestration.
+3. **Infrastructure ring**: filesystem, git, JSON stores, process probes, HTTP loopback server, and package installation adapters implemented through Python standard library unless a release approves more dependencies.
+4. **Pi/browser adapter ring**: Pi package resources plus a thin JavaScript extension adapter required by Pi's extension runtime, Markdown skills/prompts, and browser JavaScript/frontend code where the browser requires it.
 
-The product must not contain Claude Code, Codex, or OpenCode projection logic.
-The source of truth is Pi plus normal local development tools. Distributed Pi
-packages use package-root resources (`extensions/`, `skills/`, `prompts/`) or a
-`package.json` `pi` manifest; `.pi/**` is the consumer/project-local runtime
-surface, not the package's canonical source layout.
+The product must not contain Claude Code, Codex, or OpenCode projection logic. The source of truth is Pi plus normal local development tools. When workflows need model reasoning, Python calls Pi through RPC mode or headless print/json subprocess modes. Dry-run/offline execution records deterministic fallback evidence.
+
+Distributed Pi packages use package-root resources (`extensions/`, `skills/`, `prompts/`) or a `package.json` `pi` manifest. The package must include `src/dadaia_pi/**` because the thin JS extension calls the Python bridge from the package root. Consumer `.pi/**` is the project-local runtime surface, not the package's canonical source layout.
 
 ## Camadas
 
@@ -61,55 +55,42 @@ Managed context repo:
 
 ## Regras de dependência
 
-Initial source layout:
+Current source authority:
 
 | Module | Responsibility |
 |---|---|
-| `src/cli/` | command parsing only; no business rules |
-| `src/core/` | pure types, path classes, lifecycle constants, errors |
-| `src/features/context/` | context registry, ALIVE/DEAD, bind/release |
-| `src/features/specs/` | scaffold, doctor, release/backlog/bug helpers |
-| `src/features/gate/` | path classifier, phase checks, lease decisions |
-| `src/features/memory/` | memory catalog generation and validation |
-| `src/infrastructure/` | filesystem, git, JSON stores, process and hook adapters |
-| `src/pi/` | Pi extension/package integration code |
+| `src/dadaia_pi/cli.py` | Python CLI command parsing and dispatch |
+| `src/dadaia_pi/context*.py` | context registry, ALIVE/DEAD, bind/release |
+| `src/dadaia_pi/specs_*.py` | specs scaffold and doctor |
+| `src/dadaia_pi/memory.py` | memory catalog navigation |
+| `src/dadaia_pi/gate.py` | path classifier, policy decisions, leases, write-set checks |
+| `src/dadaia_pi/hooks.py` | git hook install and pre-commit/pre-push checks |
+| `src/dadaia_pi/workflows.py` | workflow catalog, run manifests, reports, dry-run fallback |
+| `src/dadaia_pi/pi_rpc.py` | Pi RPC JSONL client and headless subprocess runner |
+| `src/dadaia_pi/bridge.py` | JSON bridge used by the Pi extension adapter |
+| `src/dadaia_pi/panel.py` | read-only loopback panel backend/API |
+| `extensions/dadaia-pi.ts` | thin Pi event/slash-command adapter that delegates lifecycle decisions to Python |
+| Browser JavaScript | frontend-only rendering; no lifecycle policy authority |
 
-Dependency direction is CLI -> features -> core, and infrastructure implements
-ports consumed by features. Core never imports CLI, features, infrastructure, or
-Pi APIs.
+Do not add new lifecycle policy to TypeScript. New scaffold, context, specs, memory, gate, hook, workflow, handoff, status, and panel-backend behavior belongs in Python and should be exposed to JS only through the documented bridge or CLI subprocess calls. The npm `dadaia-pi` bin is a Node compatibility shim that delegates to `python3 -m dadaia_pi`; TypeScript lifecycle trees are legacy/non-authoritative and carry `LEGACY.md` markers.
 
 ## Contratos entre módulos
 
 Pi integration is a packageable resource set:
 
-- extension registers commands such as `/dadaia-bind`, `/dadaia-status`, and
-  `/dadaia-release`;
-- extension injects context with `before_agent_start` and may prune stale
-  injected context with the `context` event;
-- extension restores binding/UI state on `session_start` and stops/reconciles on
-  `session_shutdown`;
-- extension intercepts `tool_call` and blocks write-like LLM tool calls that
-  violate SDD policy;
-- extension intercepts `user_bash` for user-entered `!` / `!!` shell commands,
-  because those can mutate files outside LLM tool calls;
-- extension uses `tool_result`, `tool_execution_end`, or turn/session events for
-  heartbeat and advisory reconciliation;
-- extension may use `resources_discover` to expose package skills and prompt
-  templates dynamically when needed;
+- extension registers commands such as `/dadaia-bind`, `/dadaia-status`, `/dadaia-workflow-status`, `/dadaia-panel`, and `/dadaia-release`;
+- extension receives `session_start`, `before_agent_start`, `tool_call`, and `user_bash` events;
+- extension serializes event data to `python3 -m dadaia_pi pi-bridge <operation>` and applies the Python decision;
+- extension does not duplicate lifecycle policy beyond request/response adaptation;
 - skills teach product-steward, implementation, review, and closure workflows;
 - prompt templates provide repeatable release/spec/review prompts;
 - project settings may install the package project-locally after trust.
 
-Pi sessions are tree-structured JSONL files stored by Pi outside the workspace by
-default. The canonical binding key is Pi's `sessionManager.getSessionId()`. If a
-session is ephemeral and has no stable Pi session id, mutating bind must either be
-refused or explicitly recorded with an ephemeral key that cannot outlive the
-process. The product stores only the minimal session metadata needed for context
-binding, leases, and evidence.
+Pi sessions are tree-structured JSONL files stored by Pi outside the workspace by default. The canonical binding key is Pi's `sessionManager.getSessionId()`. If a session is ephemeral and has no stable Pi session id, mutating bind must either be refused or explicitly recorded with an ephemeral key that cannot outlive the process. The product stores only the minimal session metadata needed for context binding, leases, and evidence.
 
-## Fluxo de dados — gate v3 SDD (com RULE E e PostToolUse)
+## Fluxo de dados — gate SDD
 
-The gate classifies context-relative paths:
+The Python gate classifies context-relative paths:
 
 | Class | Paths | Decision |
 |---|---|---|
@@ -119,13 +100,7 @@ The gate classifies context-relative paths:
 | PROTECTED | `.dadaia-pi/sessions/**`, `.dadaia-pi/states/**` direct agent writes | block unless CLI-owned |
 | MUTATING | production source, tests, `specs/releases/**`, repo paths not otherwise classified | require active release and mutating lease |
 
-Pi extension gating covers Pi tool calls and user bash commands. READ mode should
-first restrict active tools with `pi.setActiveTools(["read", "grep", "find", "ls",
-"bash"])`, then still rely on the gate because tool configuration is not a
-security boundary and Bash can mutate files. Git hooks cover commit and push
-boundaries. Doctor commands provide post-hoc state validation. Any custom Pi tool
-that mutates files must wrap its read-modify-write window with Pi's
-`withFileMutationQueue()` using the resolved absolute target path.
+Pi extension gating covers Pi tool calls and user bash commands by calling the Python bridge. READ mode should first restrict active tools with `pi.setActiveTools(["read", "grep", "find", "ls", "bash"])`, then still rely on the Python gate because tool configuration is not a security boundary and Bash can mutate files. Git hooks cover commit and push boundaries. Doctor commands provide post-hoc state validation.
 
 ## Estado runtime
 
@@ -141,7 +116,5 @@ State files live under `.dadaia-pi/`:
 | `sessions/runtime/<context>.ptr` | incumbent pointer for context/session continuity |
 | `reports/<context>/...` | human reports |
 | `handoff/<context>/...` | machine handoffs |
+| `workflows/<context>/...` | workflow manifests |
 | `logs/*.jsonl` | audit/debug logs |
-
-All state stores need a doctor check and a cleanup story before they are
-implemented.

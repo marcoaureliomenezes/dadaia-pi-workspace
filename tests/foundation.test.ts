@@ -9,7 +9,7 @@ import { VERSION, defaultWorkspaceLayout } from "../src/index.js";
 
 describe("project foundation", () => {
   it("exports a package version", () => {
-    assert.equal(VERSION, "0.1.0");
+    assert.equal(VERSION, "0.2.0");
   });
 
   it("defines the canonical workspace layout", () => {

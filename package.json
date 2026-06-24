@@ -1,7 +1,7 @@
 {
   "name": "dadaia-pi-workspace",
-  "version": "0.1.0",
-  "description": "Pi-native SDD workspace manager for Spec Context Projects.",
+  "version": "0.2.0",
+  "description": "Python-first Pi-native SDD workspace manager for Spec Context Projects.",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -12,18 +12,25 @@
     "spec-driven-development"
   ],
   "bin": {
-    "dadaia-pi": "./dist/src/cli/main.js"
+    "dadaia-pi": "./bin/dadaia-pi.mjs"
   },
   "exports": {
     ".": "./dist/src/index.js"
   },
   "files": [
     "dist/src/",
+    "src/dadaia_pi/",
+    "pyproject.toml",
     "bin/",
     "extensions/",
     "skills/",
     "prompts/",
     "README.md",
+    "CHANGELOG.md",
+    "RELEASE_NOTES.md",
+    "docs/",
+    "scripts/governance-v1-smoke.mjs",
+    "workflows/",
     "AGENTS.md",
     "LICENSE"
   ],
@@ -44,7 +51,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "node scripts/lint.mjs",
     "test": "npm run build && node --test dist/tests/**/*.test.js",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "test:python": "python3 -m pytest tests_py",
+    "check:python": "PYTHONPATH=src python3 -m dadaia_pi specs doctor --specs-dir specs --json && python3 -m pytest tests_py",
+    "check": "npm run lint && npm run typecheck && npm test && npm run check:python",
+    "smoke:governance-v1": "npm run build && node scripts/governance-v1-smoke.mjs"
   },
   "engines": {
     "node": ">=20"

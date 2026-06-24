@@ -13,3 +13,6 @@ coverage/
 
 # local tool output
 *.log
+__pycache__/
+*.py[cod]
+.pytest_cache/

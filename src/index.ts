@@ -11,4 +11,5 @@ export * from "./features/memory/index.js";
 export * from "./features/panel/index.js";
 export * from "./features/status/index.js";
 export * from "./features/workspace/index.js";
+export * from "./features/workflows/index.js";
 export * from "./pi/index.js";

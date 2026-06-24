@@ -42,7 +42,9 @@ documents Pi trust honestly: resource loading approval is not sandboxing.
 | `pi-native-agent-surface` | Pi-Native Agent Surface | Extensions, skills, prompts, packages, and AGENTS.md |
 | `sdd-lifecycle-governance` | SDD Lifecycle Governance | Release phases, memory, additive evidence, mutating leases |
 | `pi-trust-and-security` | Pi Trust and Security | Trust controls resource loading, not sandboxing |
-| `pi-native-status-surface` | Pi-Native Status Surface | `dadaia-pi status` plus loopback browser panel at http://127.0.0.1:4999/ |
+| `pi-native-status-surface` | Pi-Native Status Surface | Python `dadaia-pi status` plus loopback browser panel at http://127.0.0.1:4999/ |
+| `headless-workflow-orchestration` | Headless Workflow Orchestration | Python `dadaia-pi workflow` wraps lifecycle rituals with Pi RPC/headless reasoning and scoped evidence |
+| `dadaia-workspace-merge-readiness` | Dadaia Workspace Merge Readiness | Pi support is prepared to merge into dadaia-workspace as a Python-owned `pi` harness adapter |
 
 ## Mapa de capacidades
 
@@ -58,7 +60,8 @@ graph TD
 
 ## Limites conhecidos
 
-- Initial specs define product direction; implementation has not started.
+- `dadaia-pi-workspace` is now Python-first; JS/TS is retained for Pi extension and browser/frontend adapter surfaces only.
+- The next strategic product step is merging Pi support into `dadaia-workspace` as a `pi` harness target.
 - Pi project-local resources require trust before they load.
 - Non-interactive Pi flows do not prompt for trust; use `--approve` only for repositories already reviewed and intentionally trusted.
 - Pi is not a sandbox; package resources and project-local `.pi/**` must be treated as executable code, and isolation must be provided by the OS, container, VM, or operator workflow.
